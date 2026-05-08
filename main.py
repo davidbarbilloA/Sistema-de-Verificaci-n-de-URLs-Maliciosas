@@ -1,104 +1,117 @@
 """
 Malicious URL Checker - Entry point
-Autor: Tu Nombre
-Descripción: Script principal para analizar URLs sospechosas.
 """
 
 import sys
+import os
+import asyncio
 from colorama import init, Fore, Style
 from analyzer import URLAnalyzer
 from logger import URLLogger
 from utils import print_banner, get_risk_label, get_risk_color
 
-# Inicializar colorama (necesario en Windows)
+# Inicializar colorama
 init(autoreset=True)
-
 
 def analyze_single_url(url: str, analyzer: URLAnalyzer, logger: URLLogger) -> None:
     """Analiza una sola URL y muestra los resultados en consola."""
-    print(f"\n{Fore.CYAN}{'─'*55}")
-    print(f"  Analizando: {Fore.WHITE}{url}")
-    print(f"{Fore.CYAN}{'─'*55}{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}{'-'*65}")
+    print(f"  Iniciando análisis profundo para: {Fore.WHITE}{url}")
+    print(f"{Fore.CYAN}{'-'*65}{Style.RESET_ALL}")
 
     result = analyzer.analyze(url)
+    if not result.get("valida"):
+        print(f"{Fore.RED}[!] ERROR: {result.get('error', 'URL inválida')}")
+        return
+
     score = result["score"]
     label, color = get_risk_label(score), get_risk_color(score)
 
-    # --- Sección: Validación de URL ---
-    print(f"\n{Fore.YELLOW}[ VALIDACIÓN DE URL ]{Style.RESET_ALL}")
-    checks = result["checks"]
-    flags = {
-        "HTTPS":              ("✔ Usa HTTPS",              "✘ Sin HTTPS (HTTP)"),
-        "no_ip":              ("✔ Usa dominio",             "✘ Usa dirección IP"),
-        "longitud_ok":        ("✔ Longitud normal",         "✘ URL demasiado larga"),
-        "sin_chars_raros":    ("✔ Sin caracteres raros",    "✘ Caracteres sospechosos"),
-        "no_acortador":       ("✔ No es acortador",         "✘ Acortador detectado"),
-        "subdominios_ok":     ("✔ Subdominios normales",    "✘ Múltiples subdominios"),
-    }
-    for key, (ok_msg, fail_msg) in flags.items():
-        if checks.get(key):
-            print(f"  {Fore.GREEN}{ok_msg}")
-        else:
-            print(f"  {Fore.RED}{fail_msg}")
+    # --- Redirecciones ---
+    reds = result.get("redirects", {})
+    if reds.get("count", 0) > 0:
+        print(f"\n{Fore.YELLOW}[ REDIRECCIONES ]{Style.RESET_ALL}")
+        print(f"  Cadena: {Fore.WHITE} -> ".join(reds["chain"]))
+        print(f"  Total:  {Fore.CYAN}{reds['count']} saltos")
 
-    # --- Sección: Phishing ---
-    print(f"\n{Fore.YELLOW}[ DETECCIÓN DE PHISHING ]{Style.RESET_ALL}")
-    palabras = result.get("palabras_sospechosas", [])
-    if palabras:
-        print(f"  {Fore.RED}✘ Palabras sospechosas encontradas: {', '.join(palabras)}")
+    # --- IP Inteligente ---
+    ip = result.get("ip", {})
+    print(f"\n{Fore.YELLOW}[ IP INTELIGENTE ]{Style.RESET_ALL}")
+    if ip.get("error"):
+        print(f"  {Fore.MAGENTA}[!] {ip['error']}")
     else:
-        print(f"  {Fore.GREEN}✔ Sin palabras sospechosas")
+        print(f"  IP:      {Fore.WHITE}{ip.get('ip')}")
+        print(f"  Ubic.:   {Fore.WHITE}{ip.get('city')}, {ip.get('country')}")
+        print(f"  ISP:     {Fore.WHITE}{ip.get('isp')}")
 
-    # --- Sección: VirusTotal ---
-    print(f"\n{Fore.YELLOW}[ VIRUSTOTAL ]{Style.RESET_ALL}")
+    # --- Análisis HTML ---
+    html = result.get("html", {})
+    print(f"\n{Fore.YELLOW}[ ANALISIS HTML ]{Style.RESET_ALL}")
+    if html.get("error"):
+        print(f"  {Fore.MAGENTA}[!] {html['error']}")
+    else:
+        print(f"  Título:  {Fore.WHITE}{html.get('title')}")
+        print(f"  Scripts: {Fore.WHITE}{html.get('script_count')}")
+        print(f"  Iframes: {Fore.WHITE}{html.get('iframe_count')} ({len(html.get('suspicious_iframes', []))} sospechosos)")
+        if html.get("has_login_form"):
+            print(f"  {Fore.RED}[!] Detectado formulario de ingreso de credenciales")
+
+    # --- Machine Learning ---
+    ml = result.get("ml", {})
+    print(f"\n{Fore.YELLOW}[ MACHINE LEARNING ]{Style.RESET_ALL}")
+    prob_color = Fore.RED if ml.get("probability", 0) > 60 else Fore.YELLOW if ml.get("probability", 0) > 30 else Fore.GREEN
+    print(f"  Predicción:    {prob_color}{ml.get('prediction')}")
+    print(f"  Prob. Riesgo:  {prob_color}{ml.get('probability')}%")
+
+    # --- VirusTotal & Otros ---
+    # (Omitido por brevedad en consola, pero procesado en score)
     vt = result.get("virustotal", {})
-    if vt.get("error"):
-        print(f"  {Fore.MAGENTA}⚠ {vt['error']}")
-    elif vt.get("omitido"):
-        print(f"  {Fore.MAGENTA}⚠ Análisis de VT omitido (sin API Key)")
-    else:
-        print(f"  Maliciosos:   {Fore.RED}{vt.get('malicious', 0)}")
-        print(f"  Sospechosos:  {Fore.YELLOW}{vt.get('suspicious', 0)}")
-        print(f"  Limpios:      {Fore.GREEN}{vt.get('harmless', 0)}")
-        print(f"  Sin detectar: {Fore.WHITE}{vt.get('undetected', 0)}")
+    if vt.get("malicious", 0) > 0:
+        print(f"\n{Fore.RED}[!] VirusTotal detectó {vt['malicious']} motores maliciosos")
+
+    # --- Captura de pantalla (Async) ---
+    print(f"\n{Fore.YELLOW}[ CAPTURA DE PANTALLA ]{Style.RESET_ALL}")
+    shot_path = os.path.join("logs", f"screenshot_{url.replace('://', '_').replace('/', '_').replace(':', '_')}.png")
+    print(f"  {Fore.WHITE}Generando captura...")
+    
+    try:
+        shot_result = asyncio.run(analyzer.browser_client.take_screenshot(url, shot_path))
+        if shot_result.get("success"):
+            print(f"  {Fore.GREEN}[+] Captura guardada en: {shot_result['path']}")
+        else:
+            print(f"  {Fore.RED}[!] {shot_result.get('error')}")
+    except Exception as e:
+        print(f"  {Fore.RED}[!] Error inesperado en captura: {e}")
 
     # --- Score final ---
-    print(f"\n{Fore.YELLOW}[ RESULTADO FINAL ]{Style.RESET_ALL}")
-    print(f"  Score de riesgo: {color}{score}/100{Style.RESET_ALL}")
-    print(f"  Clasificación:   {color}[ {label} ]{Style.RESET_ALL}\n")
+    print(f"\n{Fore.CYAN}{'='*65}")
+    print(f"  SCORE FINAL DE RIESGO: {color}{score}/100")
+    print(f"  CLASIFICACIÓN:         {color}[ {label} ]")
+    print(f"{Fore.CYAN}{'='*65}\n")
 
-    # Guardar log
     logger.save(url, score, label)
 
-
 def run_interactive(analyzer: URLAnalyzer, logger: URLLogger) -> None:
-    """Modo interactivo: el usuario ingresa URLs una por una."""
-    print(f"\n{Fore.CYAN}Modo interactivo — escribe 'salir' para terminar.{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}Modo interactivo activo. Escribe 'salir' para terminar.{Style.RESET_ALL}")
     while True:
         try:
-            url = input(f"\n{Fore.WHITE}» URL a analizar: {Style.RESET_ALL}").strip()
-            if url.lower() in ("salir", "exit", "q"):
-                print(f"{Fore.CYAN}¡Hasta luego!{Style.RESET_ALL}")
-                break
+            url = input(f"\n{Fore.WHITE}>> URL a analizar: {Style.RESET_ALL}").strip()
+            if url.lower() in ("salir", "exit", "q"): break
             if url:
+                if not url.startswith("http"): url = "http://" + url
                 analyze_single_url(url, analyzer, logger)
-        except KeyboardInterrupt:
-            print(f"\n{Fore.CYAN}Interrumpido. ¡Hasta luego!{Style.RESET_ALL}")
-            break
-
+        except KeyboardInterrupt: break
 
 def main() -> None:
     print_banner()
     analyzer = URLAnalyzer()
     logger = URLLogger()
-
-    # Si se pasa una URL como argumento: modo directo
     if len(sys.argv) > 1:
         url = sys.argv[1]
+        if not url.startswith("http"): url = "http://" + url
         analyze_single_url(url, analyzer, logger)
     else:
         run_interactive(analyzer, logger)
-
 
 if __name__ == "__main__":
     main()

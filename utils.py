@@ -57,7 +57,7 @@ BANNER = r"""
  | |  | | (_| | || | (__| | (_) | |_| \__,_| |_|  _ <| |___
  |_|  |_|\__,_|_|/ |\___|_|\___/ \__,_\__,_|\___/_| \_\_____|
                 |__/
-         URL  C H E C K E R  —  Defensive Security Tool
+         URL  C H E C K E R  -  Defensive Security Tool
 """
 
 

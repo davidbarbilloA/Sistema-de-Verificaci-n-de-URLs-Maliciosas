@@ -9,9 +9,10 @@ import time
 
 import requests
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
-
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(env_path)
 
 class VirusTotalClient:
     """
