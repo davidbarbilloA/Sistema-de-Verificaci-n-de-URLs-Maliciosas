@@ -8,6 +8,7 @@ import asyncio
 from colorama import init, Fore, Style
 from analyzer import URLAnalyzer
 from logger import URLLogger
+from report_generator import ReportGenerator
 from utils import print_banner, get_risk_label, get_risk_color
 
 # Inicializar colorama
@@ -90,6 +91,20 @@ def analyze_single_url(url: str, analyzer: URLAnalyzer, logger: URLLogger) -> No
     print(f"{Fore.CYAN}{'='*65}\n")
 
     logger.save(url, score, label)
+
+    # --- Generar Informe SOC ---
+    choice = input(f"\n{Fore.YELLOW}¿Deseas generar un informe SOC profesional? (s/n): {Style.RESET_ALL}").lower()
+    if choice == 's':
+        generator = ReportGenerator()
+        report = generator.generate_soc_report(result)
+        print(f"\n{Fore.WHITE}{report}")
+        
+        # Guardar en archivo
+        report_filename = f"report_SOC_{url.replace('://', '_').replace('/', '_').replace(':', '_')}.txt"
+        report_path = os.path.join("logs", report_filename)
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(report)
+        print(f"\n{Fore.GREEN}[+] Informe guardado en: {report_path}")
 
 def run_interactive(analyzer: URLAnalyzer, logger: URLLogger) -> None:
     print(f"\n{Fore.CYAN}Modo interactivo activo. Escribe 'salir' para terminar.{Style.RESET_ALL}")
