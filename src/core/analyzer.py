@@ -9,14 +9,14 @@ from urllib.parse import urlparse
 import tldextract
 import validators
 
-from virustotal import VirusTotalClient
-from whois_client import WhoisClient
-from ssl_client import SSLClient
-from ip_client import IPClient
-from browser_client import BrowserClient
-from html_analyzer import HTMLAnalyzer
-from ml_detector import MLDetector
-from utils import PALABRAS_SOSPECHOSAS, ACORTADORES
+from src.services.virustotal import VirusTotalClient
+from src.services.whois_client import WhoisClient
+from src.services.ssl_client import SSLClient
+from src.services.ip_client import IPClient
+from src.services.browser_client import BrowserClient
+from src.core.html_analyzer import HTMLAnalyzer
+from src.core.ml_detector import MLDetector
+from src.utils.utils import PALABRAS_SOSPECHOSAS, ACORTADORES
 
 
 class URLAnalyzer:

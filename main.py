@@ -6,10 +6,10 @@ import sys
 import os
 import asyncio
 from colorama import init, Fore, Style
-from analyzer import URLAnalyzer
-from logger import URLLogger
-from report_generator import ReportGenerator
-from utils import print_banner, get_risk_label, get_risk_color
+from src.core.analyzer import URLAnalyzer
+from src.utils.logger import URLLogger
+from src.utils.report_generator import ReportGenerator
+from src.utils.utils import print_banner, get_risk_label, get_risk_color
 
 # Inicializar colorama
 init(autoreset=True)
