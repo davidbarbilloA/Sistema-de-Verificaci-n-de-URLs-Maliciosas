@@ -179,13 +179,13 @@ python main.py
 
 | Score | Nivel | Color |
 |---|---|---|
-| 0 – 30 | ✅ SEGURO | Verde |
-| 31 – 60 | ⚠️ SOSPECHOSO | Amarillo |
-| 61 – 100 | 🚨 MALICIOSO | Rojo |
+| 0 – 30 |  SEGURO | Verde |
+| 31 – 60 |  SOSPECHOSO | Amarillo |
+| 61 – 100 |  MALICIOSO | Rojo |
 
 ---
 
-## 🖥 Ejemplos de salida
+##  Ejemplos de salida
 
 ```
 ─────────────────────────────────────────────────────────────────
